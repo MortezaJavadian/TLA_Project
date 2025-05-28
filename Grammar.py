@@ -12,6 +12,7 @@ class Grammar:
 
     def __str__(self):
         lines = []
+        lines.append(f"\n  ======  Grammar ======  ")
         lines.append(f"\nStart Symbol: {self.start_symbol}")
         lines.append(f"\nEpsilon Symbol: {self.epsilon_symbol}")
         lines.append(f"\nNon-Terminals: {self.non_terminals}")
