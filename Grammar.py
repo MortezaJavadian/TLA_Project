@@ -1,4 +1,5 @@
 import re
+import warnings
 
 class Grammar:
     def __init__(self, epsilon_symbol="eps"):
@@ -9,7 +10,7 @@ class Grammar:
         self.productions = {}
         self.terminal_definitions = {}
 
-    def __repr__(self):
+    def __str__(self):
         lines = []
         lines.append(f"\nStart Symbol: {self.start_symbol}")
         lines.append(f"\nEpsilon Symbol: {self.epsilon_symbol}")
@@ -51,9 +52,8 @@ class Grammar:
             with open(filepath, 'r', encoding='utf-8') as file:
                 all_lines = file.readlines()
 
-        except FileNotFoundError:
-            print("Error: File not found!")
-            return False
+        except FileNotFoundError as e:
+            raise FileNotFoundError("Error: File not found!") from e
 
         for line_num, line in enumerate(all_lines):
 
@@ -63,7 +63,7 @@ class Grammar:
                 if right_hand == "Comment":
                     continue
                 elif right_hand == "Error":
-                    print(f"Warning: The format of line number {line_num + 1} is unknown!")
+                    warnings.warn(f"The format of line number {line_num + 1} is unknown!")
                     continue
 
             if "=" in line:
@@ -100,19 +100,16 @@ class Grammar:
                     self.terminal_definitions[left_hand] = regex_pattern
 
                 else:
-                    print(f"Warning: The symbol '{left_hand}' on line {line_num + 1} isn't in terminals or non-terminals symbols!")            
+                    warnings.warn(f"The symbol '{left_hand}' on line {line_num + 1} isn't in terminals or non-terminals symbols!")
             
         if not self.start_symbol:
-            print("Error: The start symbol isn't defined in the grammar file!")
-            return False
+            raise ValueError("Error: The start symbol isn't defined in the grammar file!")
         if not self.non_terminals:
-            print("Error: The non-terminals symbols isn't defined in the grammar file!")
-            return False
+            raise ValueError("Error: The non-terminals symbols aren't defined in the grammar file!")
         if not self.terminals:
-            print("Error: The terminals symbols isn't defined in the grammar file!")
-            return False
+            raise ValueError("Error: The terminals symbols aren't defined in the grammar file!")
         if not self.productions:
-            print("Warning: The productions isn't defined in the grammar file!")
+            warnings.warn("Warning: The productions aren't defined in the grammar file!")
 
         all_symbols_in_productions = set()
         for expressions in self.productions.values():
@@ -124,7 +121,9 @@ class Grammar:
         all_defined_symbols = self.non_terminals.union(self.terminals)
         undefined_symbols = all_symbols_in_productions - all_defined_symbols
         if undefined_symbols:
-            print(f"Warning: The following symbols use on the right hand of the rules but aren't defined in terminal or non-terminal:\n{undefined_symbols}")
+            warnings.warn(
+                "The following symbols are used on the right-hand side of rules but aren't defined in terminals or non-terminals:\n"
+                f"{undefined_symbols}"
+            )
         
         print("Grammar loading was successful.")
-        return True
