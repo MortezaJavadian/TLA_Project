@@ -128,3 +128,27 @@ class Grammar:
             )
         
         print("Grammar loading was successful.")
+
+    def tokenize_input(self, input_string):
+        input_string = input_string.strip()
+        position = 0
+        tokens = []
+
+        regex_parts = []
+        for token_name, regex in self.terminal_definitions.items():
+            regex_parts.append(f"(?P<{token_name}>{regex})")
+
+        master_regex = re.compile("|".join(regex_parts))
+
+        while position < len(input_string):
+            match = master_regex.match(input_string, position)
+            if match:
+                token_type = match.lastgroup
+                tokens.append(token_type)
+                position = match.end()
+            elif input_string[position].isspace():
+                position += 1
+            else:
+                raise ValueError(f"Invalid token at position {position}: '{input_string[position:]}'")
+
+        return tokens
