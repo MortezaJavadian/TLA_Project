@@ -19,117 +19,176 @@ class LL1_2_DPDA:
             self.first[non_terminal] = set()
             self.follow[non_terminal] = set()
         
-        for non_terminal, productions in self.grammar.productions.items():
-            for production in productions:
-                if production == [epsilon]:
+        for non_terminal, productions_list in self.grammar.productions.items():
+            for production_rule in productions_list:
+                if production_rule == [epsilon]: 
                     self.first[non_terminal].add(epsilon)
         
         changed = True
         while changed:
             changed = False
-            for non_terminal, productions in self.grammar.productions.items():
-                for production in productions:
-                    for symbol in production:
-                        if symbol == epsilon:
-                            continue
-                        if symbol in self.grammar.terminals:
-                            if symbol not in self.first[non_terminal]:
-                                self.first[non_terminal].add(symbol)
+            for non_terminal, productions_list in self.grammar.productions.items():
+                for production_rule in productions_list:
+                    for symbol_in_rule in production_rule: 
+                        if symbol_in_rule == epsilon: 
+                            pass
+
+                        if symbol_in_rule in self.grammar.terminals:
+                            if symbol_in_rule not in self.first[non_terminal]:
+                                self.first[non_terminal].add(symbol_in_rule)
                                 changed = True
                             break
-                        else:
+                        elif symbol_in_rule in self.grammar.non_terminals:
                             prev_len = len(self.first[non_terminal])
-                            self.first[non_terminal] |= self.first[symbol] - {epsilon}
+                            self.first[non_terminal].update(self.first[symbol_in_rule] - {epsilon})
                             if len(self.first[non_terminal]) != prev_len:
                                 changed = True
-                            if epsilon not in self.first[symbol]:
-                                break
-                    else:
+                            if epsilon not in self.first[symbol_in_rule]:
+                                break 
+                    else: 
                         if epsilon not in self.first[non_terminal]:
                             self.first[non_terminal].add(epsilon)
                             changed = True
         
-        self.follow[self.grammar.start_symbol].add('$')
         changed = True
         while changed:
             changed = False
-            for non_terminal, productions in self.grammar.productions.items():
-                for production in productions:
-                    trailer = self.follow[non_terminal].copy()
-                    for symbol in reversed(production):
-                        if symbol in self.grammar.non_terminals:
-                            prev_len = len(self.follow[symbol])
-                            self.follow[symbol] |= trailer
-                            if len(self.follow[symbol]) != prev_len:
+            for nt in self.grammar.non_terminals:
+                for prod_rule in self.grammar.productions.get(nt, []):
+                    rhs_first_set_added_epsilon = True
+                    for symbol in prod_rule:
+                        if symbol == epsilon: 
+                            break 
+                        
+                        current_symbol_first = set()
+                        if symbol in self.grammar.terminals:
+                            current_symbol_first = {symbol}
+                        elif symbol in self.grammar.non_terminals:
+                            current_symbol_first = self.first[symbol]
+                        
+                        added_now = current_symbol_first - {epsilon}
+                        old_len = len(self.first[nt])
+                        self.first[nt].update(added_now)
+                        if len(self.first[nt]) != old_len:
+                            changed = True
+                        
+                        if epsilon not in current_symbol_first:
+                            rhs_first_set_added_epsilon = False
+                            break 
+                    
+                    if rhs_first_set_added_epsilon: 
+                        if epsilon not in self.first[nt]:
+                           self.first[nt].add(epsilon)
+                           changed = True
+
+        self.follow[self.grammar.start_symbol].add('$')
+        
+        changed = True
+        while changed:
+            changed = False
+            for non_terminal_A, productions_list in self.grammar.productions.items():
+                for production_rule in productions_list: 
+                    trailer = self.follow[non_terminal_A].copy() 
+                    
+                    for i in range(len(production_rule) - 1, -1, -1): 
+                        symbol_B = production_rule[i]
+                        
+                        if symbol_B in self.grammar.non_terminals:
+                            old_len_follow_B = len(self.follow[symbol_B])
+                            self.follow[symbol_B].update(trailer)
+                            if len(self.follow[symbol_B]) != old_len_follow_B:
                                 changed = True
-                            if epsilon in self.first.get(symbol, set()):
-                                trailer |= self.first[symbol] - {epsilon}
+                            
+                            if epsilon in self.first.get(symbol_B, set()):
+                                trailer.update(self.first[symbol_B] - {epsilon})
                             else:
-                                trailer = self.first.get(symbol, set()).copy()
-                        elif symbol in self.grammar.terminals:
-                            trailer = {symbol}
+                                trailer = self.first.get(symbol_B, set()).copy()
+                                
+                        elif symbol_B in self.grammar.terminals:
+                            trailer = {symbol_B} 
+                        elif symbol_B == epsilon:
+                            pass
+
 
     def _build_parsing_table(self):
-        self._compute_first_follow()
+        self._compute_first_follow() 
         epsilon = self.grammar.epsilon_symbol
-        
-        for non_terminal, productions in self.grammar.productions.items():
-            for production in productions:
-                first_of_production = set()
-                for symbol in production:
-                    if symbol == epsilon:
-                        first_of_production.add(epsilon)
-                        break
-                    if symbol in self.grammar.terminals:
-                        first_of_production.add(symbol)
-                        break
-                    first_of_production |= self.first[symbol] - {epsilon}
-                    if epsilon not in self.first[symbol]:
-                        break
-                else:
-                    first_of_production.add(epsilon)
+        self.parsing_table = {}
+
+        for non_terminal_A, productions_list in self.grammar.productions.items():
+            for production_rule_alpha in productions_list: 
                 
-                for terminal in first_of_production - {epsilon}:
-                    self.parsing_table[(non_terminal, terminal)] = production
+                first_of_alpha = set()
+                all_derive_epsilon = True
+                for symbol_Y in production_rule_alpha:
+                    if symbol_Y == epsilon: 
+                        break 
+                    
+                    first_of_Y = set()
+                    if symbol_Y in self.grammar.terminals:
+                        first_of_Y = {symbol_Y}
+                    elif symbol_Y in self.grammar.non_terminals:
+                        first_of_Y = self.first.get(symbol_Y, set())
+                    
+                    first_of_alpha.update(first_of_Y - {epsilon})
+                    if epsilon not in first_of_Y:
+                        all_derive_epsilon = False
+                        break 
                 
-                if epsilon in first_of_production:
-                    for terminal in self.follow[non_terminal]:
-                        self.parsing_table[(non_terminal, terminal)] = production
-                    if '$' in self.follow[non_terminal]:
-                        self.parsing_table[(non_terminal, '$')] = production
-        
+                if all_derive_epsilon: 
+                    first_of_alpha.add(epsilon)
+
+                for terminal_a in first_of_alpha:
+                    if terminal_a != epsilon:
+                        if (non_terminal_A, terminal_a) in self.parsing_table:
+                            pass 
+                        self.parsing_table[(non_terminal_A, terminal_a)] = production_rule_alpha
+                
+                if epsilon in first_of_alpha:
+                    for terminal_b in self.follow.get(non_terminal_A, set()):
+                        if (non_terminal_A, terminal_b) in self.parsing_table:
+                            pass
+                        self.parsing_table[(non_terminal_A, terminal_b)] = production_rule_alpha
+
+
     def convert_ll1_to_dpda(self, initial_stack_symbol='Z0'):
         self._build_parsing_table()
         
-        states = {'q0', 'q', 'f'}
-        input_alphabet = self.grammar.terminals | {'$'} 
-        stack_alphabet = self.grammar.terminals | self.grammar.non_terminals | {initial_stack_symbol}
+        states = {'q0', 'q', 'f'} 
+        input_alphabet = self.grammar.terminals.copy()
+        input_alphabet.add('$')
+        
+        stack_alphabet = self.grammar.terminals.union(self.grammar.non_terminals)
+        stack_alphabet.add(initial_stack_symbol)
+        
         start_state = 'q0'
         accept_states = {'f'}
-        epsilon_symbol = self.grammar.epsilon_symbol
+        epsilon_symbol_for_dpda = self.grammar.epsilon_symbol 
+
         transition_function = {}
         
-        transition_function[('q0', epsilon_symbol, initial_stack_symbol)] = ('q', [self.grammar.start_symbol, initial_stack_symbol])
+        transition_function[('q0', epsilon_symbol_for_dpda, initial_stack_symbol)] = \
+            ('q', [self.grammar.start_symbol, initial_stack_symbol])
         
-        for (non_terminal, terminal), production in self.parsing_table.items():
-            key = ('q', terminal, non_terminal)
-            transition_function[key] = ('q', production)
+        for (non_terminal, terminal_lookahead), production in self.parsing_table.items():
+            key = ('q', terminal_lookahead, non_terminal)
+            effective_production_to_push = [] if production == [self.grammar.epsilon_symbol] else production
+            transition_function[key] = ('q', effective_production_to_push)
         
         for terminal in self.grammar.terminals:
             key = ('q', terminal, terminal)
-            transition_function[key] = ('q', [])
+            transition_function[key] = ('q', []) # Empty list means pop, push nothing
         
-        transition_function[('q', epsilon_symbol, initial_stack_symbol)] = ('f', [])
+        transition_function[('q', epsilon_symbol_for_dpda, initial_stack_symbol)] = ('f', []) # Pop Z0, go to f
 
         self.dpda = DPDA(
             all_states=states,
-            input_alphabet=input_alphabet,
+            input_alphabet=input_alphabet, 
             stack_alphabet=stack_alphabet,
             initial_stack_symbol=initial_stack_symbol,
             start_state=start_state,
             accept_states=accept_states,
             transition_function=transition_function,
-            epsilon_symbol=epsilon_symbol
+            epsilon_symbol=epsilon_symbol_for_dpda,
         )
-
         return self.dpda

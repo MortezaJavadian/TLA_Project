@@ -14,3 +14,5 @@ input_tokens = LL1_grammar.tokenize_input("( a + b ) * ( c + d + ( 123 ) )")
 accepted, logs = dpda.accepts_input(input_tokens)
 print(logs)
 print(accepted)
+
+# ( a + b ) * ( c + d + ( 123 ) )
