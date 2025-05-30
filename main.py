@@ -32,7 +32,7 @@ LL1_grammar.load_grammar('grammar.txt')
 # print(logs)
 # print(accepted)
 
-L2D = LL1_2_DPDA()
-dpda = L2D.convert_ll1_to_dpda(LL1_grammar)
+L2D = LL1_2_DPDA(LL1_grammar)
+dpda = L2D.convert_ll1_to_dpda()
 print(dpda)
 
