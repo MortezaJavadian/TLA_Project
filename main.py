@@ -10,6 +10,7 @@ L2D = LL1_2_DPDA(LL1_grammar)
 dpda = L2D.convert_ll1_to_dpda()
 print(dpda)
 
-accepted, logs = dpda.accepts_input(LL1_grammar.tokenize_input("( a + b ) * ( c + d + ( 123 ) )"))
+input_tokens = LL1_grammar.tokenize_input("( a + b ) * ( c + d + ( 123 ) )")
+accepted, logs = dpda.accepts_input(input_tokens)
 print(logs)
 print(accepted)
