@@ -10,3 +10,4 @@ L2D = LL1_2_DPDA(LL1_grammar)
 print(L2D.dpda)
 
 L2D.parse('( a + b ) * ( c + d + ( 123 ) )')
+# function main ( ) { x = 42 ; y = 3.14 ; z = ( x + y ) * 2 ; if ( z ) { result = z / 1.5 ; } while ( x ) { x = x - 1 ; } return result ; }
