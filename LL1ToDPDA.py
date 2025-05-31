@@ -33,8 +33,6 @@ class LL1_2_DPDA:
             for non_terminal, productions_list in self.grammar.productions.items():
                 for production_rule in productions_list:
                     for symbol_in_rule in production_rule: 
-                        if symbol_in_rule == epsilon: 
-                            pass
 
                         if symbol_in_rule in self.grammar.terminals:
                             if symbol_in_rule not in self.first[non_terminal]:
@@ -84,7 +82,7 @@ class LL1_2_DPDA:
                            self.first[nt].add(epsilon)
                            changed = True
 
-        self.follow[self.grammar.start_symbol].add('$')
+        self.follow[self.grammar.start_symbol].add(self.grammar.epsilon_symbol)
         
         changed = True
         while changed:
@@ -109,23 +107,20 @@ class LL1_2_DPDA:
                                 
                         elif symbol_B in self.grammar.terminals:
                             trailer = {symbol_B} 
-                        elif symbol_B == epsilon:
-                            pass
-
 
     def _build_parsing_table(self):
-        self._compute_first_follow() 
+        self._compute_first_follow()
         epsilon = self.grammar.epsilon_symbol
         self.parsing_table = {}
 
         for non_terminal_A, productions_list in self.grammar.productions.items():
-            for production_rule_alpha in productions_list: 
+            for production_rule_alpha in productions_list:
                 
                 first_of_alpha = set()
                 all_derive_epsilon = True
                 for symbol_Y in production_rule_alpha:
-                    if symbol_Y == epsilon: 
-                        break 
+                    if symbol_Y == epsilon:
+                        break
                     
                     first_of_Y = set()
                     if symbol_Y in self.grammar.terminals:
@@ -136,30 +131,24 @@ class LL1_2_DPDA:
                     first_of_alpha.update(first_of_Y - {epsilon})
                     if epsilon not in first_of_Y:
                         all_derive_epsilon = False
-                        break 
+                        break
                 
-                if all_derive_epsilon: 
+                if all_derive_epsilon:
                     first_of_alpha.add(epsilon)
 
                 for terminal_a in first_of_alpha:
                     if terminal_a != epsilon:
-                        if (non_terminal_A, terminal_a) in self.parsing_table:
-                            pass 
                         self.parsing_table[(non_terminal_A, terminal_a)] = production_rule_alpha
                 
                 if epsilon in first_of_alpha:
                     for terminal_b in self.follow.get(non_terminal_A, set()):
-                        if (non_terminal_A, terminal_b) in self.parsing_table:
-                            pass
                         self.parsing_table[(non_terminal_A, terminal_b)] = production_rule_alpha
-
 
     def _convert_ll1_to_dpda(self):
         self._build_parsing_table()
         
         states = {'q0', 'q', 'f'} 
         input_alphabet = self.grammar.terminals.copy()
-        input_alphabet.add('$')
         
         stack_alphabet = self.grammar.terminals.union(self.grammar.non_terminals)
         stack_alphabet.add(self.initial_stack_symbol)
@@ -204,4 +193,4 @@ class LL1_2_DPDA:
         if accepted:
             self.dpda.create_parse_tree(input_tokens, input_string.split())
         else:
-            print("Input not accepted by the DPDA.")
+            print("Not created Parse Tree!")

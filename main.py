@@ -10,4 +10,3 @@ L2D = LL1_2_DPDA(LL1_grammar)
 print(L2D.dpda)
 
 L2D.parse('( a + b ) * ( c + d + ( 123 ) )')
-# ( a + b ) * ( c + d + ( 123 ) )
