@@ -163,12 +163,15 @@ class DPDA:
 
             return False, "\n".join(logs)
         
-    def _plot_parse_tree(self):
+    def _plot_parse_tree(self, filename='parse_tree'):
         def plot_recurse(node, parent_id=None):
             nid = str(id(node))
 
-            if node.is_Leaf:
-                dot.node(nid, label=node.symbol, shape='box', style='filled', color='lightgreen')
+            if node.is_Leaf or not node.children:
+                if node.is_Leaf:
+                    dot.node(nid, label=node.symbol, shape='box', style='filled', color='lightgreen')
+                elif not node.children:
+                    dot.node(nid, label=node.symbol, shape='circle', style='filled', color='lightblue')
             else:
                 dot.node(nid, label=node.symbol, shape='ellipse', style='filled', color='yellow')
 
@@ -184,7 +187,7 @@ class DPDA:
 
         plot_recurse(self.root_parse_tree)
 
-        dot.render('parse_tree', format='png')
+        dot.render(filename, format='png')
     
     def create_parse_tree(self, input_tokens, input_string):
         current_state = self.start_state
@@ -195,6 +198,7 @@ class DPDA:
         root = Node(self.initial_stack_symbol)
         stack_nodes = [root]
 
+        counter_ID = 1
         while stack_symbols:
             lookahead = input_tokens[token_index] if token_index < input_length else None
             stack_top = stack_symbols[-1]
@@ -213,7 +217,13 @@ class DPDA:
             if trans_type == "MATCH_CONSUME":
                 node_top.is_Leaf = False
                 leaf_value = input_string[token_index] if token_index < len(input_string) else ""
-                leaf_node = Node(leaf_value, is_Leaf=True)
+                if node_top.symbol == "ID" or node_top.symbol == "IDENTIFIER":
+                    leaf_node = Node(symbol=leaf_value, is_Leaf=True)
+                    leaf_node.children = [Node(symbol=f'ID = {counter_ID}')]
+                    counter_ID += 1
+                else:
+                    leaf_node = Node(symbol=leaf_value, is_Leaf=True)
+
                 node_top.children = [leaf_node]
                 token_index += 1
 
@@ -239,3 +249,57 @@ class DPDA:
 
         self.root_parse_tree = root.children[0] if root.children else root
         self._plot_parse_tree()
+
+    def rename_block_by_ID(self, target_id, new_symbol):
+        def find_path(node, target_id, path):
+            path.append(node)
+
+            if not node.is_Leaf and not node.children:
+                if node.symbol == f'ID = {target_id}':
+                    return path.copy()
+            
+            for child in node.children:
+                result = find_path(child, target_id, path)
+                if result is not None:
+                    return result
+            
+            path.pop()
+            return None
+
+        def find_block_root(path):
+            for node in reversed(path):
+                if len(node.children) >= 2:
+                    left_child = node.children[0]
+                    right_child = node.children[-1]
+                    
+                    if ((left_child.symbol == 'LEFT_PAR' and right_child.symbol == 'RIGHT_PAR') or
+                        (left_child.symbol == 'LEFT_BRACE' and right_child.symbol == 'RIGHT_BRACE')):
+                        return node
+                    
+            return None
+
+        def rename_symbol_in_block(node, old_symbol, new_symbol):
+            if node.is_Leaf:
+                if node.symbol == old_symbol:
+                    node.symbol = new_symbol
+            else:
+                for child in node.children:
+                    rename_symbol_in_block(child, old_symbol, new_symbol)
+
+        if self.root_parse_tree == None:
+            raise ValueError("Not created Parse Tree!")
+        
+        path = find_path(self.root_parse_tree, target_id, [])
+
+        if path is None:
+            raise ValueError(f"Not found leaf with ID = {target_id} !")
+        
+        target_leaf = path[-2]
+        old_symbol = target_leaf.symbol
+
+        block_root = find_block_root(path)
+        if block_root is None:
+            block_root = self.root_parse_tree
+
+        rename_symbol_in_block(block_root, old_symbol, new_symbol)
+        self._plot_parse_tree('rename_parse_tree')

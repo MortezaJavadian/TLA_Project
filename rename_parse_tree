@@ -72,7 +72,7 @@ digraph {
 	1657201523120 -> 1657201523408
 	1657201523600 [label=IDENTIFIER color=yellow shape=ellipse style=filled]
 	1657201523408 -> 1657201523600
-	1657201523696 [label=a color=lightgreen shape=box style=filled]
+	1657201523696 [label=X color=lightgreen shape=box style=filled]
 	1657201523600 -> 1657201523696
 	1657201523888 [label="ID = 4" color=lightblue shape=circle style=filled]
 	1657201523696 -> 1657201523888

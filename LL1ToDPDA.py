@@ -192,5 +192,12 @@ class LL1_2_DPDA:
 
         if accepted:
             self.dpda.create_parse_tree(input_tokens, input_string.split())
+
+            rename_id = int(input('Chose a ID from Parse Tree image to change name (0 to exit): '))
+            if rename_id != 0:
+                new_symbol = input(f'  Enter a new name for this ID {rename_id}: ')
+                self.dpda.rename_block_by_ID(rename_id, new_symbol)
+            else:
+                print('Not changed in Parse Tree!')
         else:
             print("Not created Parse Tree!")
