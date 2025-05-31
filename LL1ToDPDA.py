@@ -2,12 +2,15 @@
 from DPDA import DPDA
 
 class LL1_2_DPDA:
-    def __init__(self, grammar):
+    def __init__(self, grammar, initial_stack_symbol='Z0'):
         self.first = {}
         self.follow = {}
         self.parsing_table = {}
         self.grammar = grammar
+        self.initial_stack_symbol = initial_stack_symbol
         self.dpda = None
+
+        self._convert_ll1_to_dpda()
 
     def _compute_first_follow(self):
         epsilon = self.grammar.epsilon_symbol
@@ -151,7 +154,7 @@ class LL1_2_DPDA:
                         self.parsing_table[(non_terminal_A, terminal_b)] = production_rule_alpha
 
 
-    def convert_ll1_to_dpda(self, initial_stack_symbol='Z0'):
+    def _convert_ll1_to_dpda(self):
         self._build_parsing_table()
         
         states = {'q0', 'q', 'f'} 
@@ -159,7 +162,7 @@ class LL1_2_DPDA:
         input_alphabet.add('$')
         
         stack_alphabet = self.grammar.terminals.union(self.grammar.non_terminals)
-        stack_alphabet.add(initial_stack_symbol)
+        stack_alphabet.add(self.initial_stack_symbol)
         
         start_state = 'q0'
         accept_states = {'f'}
@@ -167,8 +170,8 @@ class LL1_2_DPDA:
 
         transition_function = {}
         
-        transition_function[('q0', epsilon_symbol_for_dpda, initial_stack_symbol)] = \
-            ('q', [self.grammar.start_symbol, initial_stack_symbol])
+        transition_function[('q0', epsilon_symbol_for_dpda, self.initial_stack_symbol)] = \
+            ('q', [self.grammar.start_symbol, self.initial_stack_symbol])
         
         for (non_terminal, terminal_lookahead), production in self.parsing_table.items():
             key = ('q', terminal_lookahead, non_terminal)
@@ -177,18 +180,28 @@ class LL1_2_DPDA:
         
         for terminal in self.grammar.terminals:
             key = ('q', terminal, terminal)
-            transition_function[key] = ('q', []) # Empty list means pop, push nothing
+            transition_function[key] = ('q', [])
         
-        transition_function[('q', epsilon_symbol_for_dpda, initial_stack_symbol)] = ('f', []) # Pop Z0, go to f
+        transition_function[('q', epsilon_symbol_for_dpda, self.initial_stack_symbol)] = ('f', [])
 
         self.dpda = DPDA(
             all_states=states,
             input_alphabet=input_alphabet, 
             stack_alphabet=stack_alphabet,
-            initial_stack_symbol=initial_stack_symbol,
+            initial_stack_symbol=self.initial_stack_symbol,
             start_state=start_state,
             accept_states=accept_states,
             transition_function=transition_function,
             epsilon_symbol=epsilon_symbol_for_dpda,
         )
-        return self.dpda
+
+    def parse(self, input_string):
+        input_tokens = self.grammar.tokenize_input(input_string)
+
+        accepted, logs = self.dpda.accepts_input(input_tokens)
+        print(logs)
+
+        if accepted:
+            self.dpda.create_parse_tree(input_tokens, input_string.split())
+        else:
+            print("Input not accepted by the DPDA.")

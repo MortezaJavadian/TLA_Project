@@ -1,3 +1,11 @@
+from graphviz import Digraph
+
+class Node():
+    def __init__(self, symbol, children=[], is_Leaf=False):
+        self.symbol = symbol
+        self.children = children
+        self.is_Leaf = is_Leaf
+
 class DPDA:
     def __init__(self, all_states, input_alphabet, stack_alphabet, initial_stack_symbol,
                  start_state, accept_states, transition_function, epsilon_symbol='eps'):
@@ -12,6 +20,7 @@ class DPDA:
         self.accept_states = set(accept_states)
         self.transition_function = transition_function
         self.epsilon_symbol = epsilon_symbol
+        self.root_parse_tree = None
 
         self._validate_dpda()
 
@@ -21,22 +30,24 @@ class DPDA:
         lines.append(f"\nStates: {self.all_states}")
         lines.append(f"\nInput Alphabet: {self.input_alphabet}")
         lines.append(f"\nStack Alphabet: {self.stack_alphabet}")
-        lines.append(f"\nInitial Stack Symbol: '{self.initial_stack_symbol}'")
+        lines.append(f"\nInitial Stack symbol: '{self.initial_stack_symbol}'")
         lines.append(f"\nStart State: {self.start_state}")
         lines.append(f"\nAccept States: {self.accept_states}")
-        lines.append(f"\nEpsilon Symbol (for DPDA moves): '{self.epsilon_symbol}'")
+        lines.append(f"\nEpsilon symbol (for DPDA moves): '{self.epsilon_symbol}'")
 
         lines.append("\nTransition Function:")
         if self.transition_function:
-            for (current_state, input_sym, stack_top_sym), (next_s, push_syms) in self.transition_function.items():
-                lines.append(f"  δ({current_state}, {input_sym}, {stack_top_sym}) -> ({next_s}, PUSH={push_syms})")
+            for (current_state, input_symbol, stack_top_symbol), (next_s, push_symbols) in self.transition_function.items():
+                lines.append(f"  δ({current_state}, {input_symbol}, {stack_top_symbol}) -> ({next_s}, PUSH={push_symbols})")
         else:
             lines.append("  Transition Function not defined.")
+        
         return "\n".join(lines)
 
     def _validate_dpda(self):
         if self.start_state not in self.all_states:
             raise ValueError(f"Start state '{self.start_state}' isn't in set of states!")
+        
         if not self.accept_states.issubset(self.all_states):
             invalid_accept_states = self.accept_states - self.all_states
             raise ValueError(f"Invalid accept states: {invalid_accept_states}. Must be subset of states!")
@@ -44,12 +55,15 @@ class DPDA:
         for (current_s, input_s, stack_s), (next_s, push_s_list) in self.transition_function.items():
             if current_s not in self.all_states:
                 raise ValueError(f"Invalid current state '{current_s}' in transition key { (current_s, input_s, stack_s) }")
+            
             if next_s not in self.all_states:
                 raise ValueError(f"Invalid next state '{next_s}' in transition value for key { (current_s, input_s, stack_s) }")
+            
             if input_s != self.epsilon_symbol and input_s not in self.input_alphabet:
                  raise ValueError(f"Input symbol '{input_s}' in transition key { (current_s, input_s, stack_s) } not in DPDA input alphabet or not epsilon.")
             if stack_s not in self.stack_alphabet:
                 raise ValueError(f"Stack symbol '{stack_s}' in transition key { (current_s, input_s, stack_s) } not in DPDA stack alphabet.")
+            
             for p_s in push_s_list:
                 if p_s not in self.stack_alphabet: 
                     raise ValueError(f"Push symbol '{p_s}' in {push_s_list} for key { (current_s, input_s, stack_s) } not in DPDA stack alphabet.")
@@ -71,7 +85,7 @@ class DPDA:
             key_for_eof_lookahead = (current_state, '$', stack_top) 
             if key_for_eof_lookahead in self.transition_function:
                 next_state, push_symbols = self.transition_function[key_for_eof_lookahead]
-                return "EXPAND_NO_CONSUME", next_state, push_symbols 
+                return "EXPAND_NO_CONSUME", next_state, push_symbols
 
         key_epsilon_move = (current_state, self.epsilon_symbol, stack_top)
         if key_epsilon_move in self.transition_function:
@@ -174,3 +188,80 @@ class DPDA:
                  reason.append("General parsing failure.")
             logs.append(f"Input REJECTED! Reasons: {' '.join(reason)}")
             return False, "\n".join(logs)
+        
+    def _plot_parse_tree(self):
+        def plot_recurse(node, parent_id=None):
+            nid = str(id(node))
+
+            if node.is_Leaf:
+                dot.node(nid, label=node.symbol, shape='box', style='filled', color='lightgreen')
+            else:
+                dot.node(nid, label=node.symbol, shape='ellipse', style='filled', color='yellow')
+
+            if parent_id:
+                dot.edge(parent_id, nid)
+
+            for child in node.children:
+                plot_recurse(child, nid)
+        
+        dot = Digraph()
+        dot.attr('node', shape='circle')
+        dot.node_attr.update(fontsize='30', fontname='Arial')
+
+        plot_recurse(self.root_parse_tree)
+
+        dot.render('parse_tree', format='png')
+    
+    def create_parse_tree(self, input_tokens, input_string):
+        current_state = self.start_state
+        token_index = 0
+        input_length = len(input_tokens)
+
+        stack_symbols = [self.initial_stack_symbol]
+        root = Node(self.initial_stack_symbol)
+        stack_nodes = [root]
+
+        while stack_symbols:
+            lookahead = input_tokens[token_index] if token_index < input_length else None
+            stack_top = stack_symbols[-1]
+            node_top = stack_nodes[-1]
+
+            trans_type, next_state, push_symbols = self._find_transition(
+                current_state, lookahead, stack_top
+            )
+            if trans_type == "NO_TRANSITION":
+                break
+
+            stack_symbols.pop()
+            stack_nodes.pop()
+            current_state = next_state
+
+            if trans_type == "MATCH_CONSUME":
+                node_top.is_Leaf = False
+                leaf_value = input_string[token_index] if token_index < len(input_string) else ""
+                leaf_node = Node(leaf_value, is_Leaf=True)
+                node_top.children = [leaf_node]
+                token_index += 1
+
+            else:
+                node_top.is_Leaf = False
+                node_top.children = []
+
+                if not push_symbols:
+                    eps_node = Node(self.epsilon_symbol, is_Leaf=True)
+                    node_top.children = [eps_node]
+
+                else:
+                    for symbol in push_symbols:
+                        child = Node(symbol, children=[], is_Leaf=False)
+                        node_top.children.append(child)
+
+                    for child in reversed(node_top.children):
+                        stack_symbols.append(child.symbol)
+                        stack_nodes.append(child)
+
+            if token_index == input_length and current_state in self.accept_states:
+                break
+
+        self.root_parse_tree = root.children[0] if root.children else root
+        self._plot_parse_tree()
